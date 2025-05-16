@@ -7,6 +7,10 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== TRUE) {
   echo "<script>" . "window.location.href='./login.php';" . "</script>";
   exit;
 }
+
+# Redirect to dashboard
+echo "<script>" . "window.location.href='./dashboard.php';" . "</script>";
+exit;
 ?>
 
 <!DOCTYPE html>
