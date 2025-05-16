@@ -2,6 +2,12 @@
 # Initialize the session
 session_start();
 
+# ประกาศฟังก์ชัน redirect (เพิ่มส่วนนี้เข้าไปด้านบนหรือตรงนี้)
+function redirect($url) {
+    header("Location: $url");
+    exit;
+}
+
 # Unset all session variables
 $_SESSION = array();
 
@@ -9,5 +15,5 @@ $_SESSION = array();
 session_destroy();
 
 # Redirect to login page
-echo "<script>" . "window.location.href='./login.php';" . "</script>";
-exit;
+redirect("./login.php");
+?>

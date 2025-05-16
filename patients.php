@@ -4,8 +4,7 @@ session_start();
 
 # If user is not logged in then redirect him to login page
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== TRUE) {
-    echo "<script>" . "window.location.href='./login.php';" . "</script>";
-    exit;
+    redirect("./login.php");
 }
 
 # Include connection
@@ -13,20 +12,22 @@ require_once "./config.php";
 
 # ดึงข้อมูลผู้ใช้ปัจจุบัน
 $id = $_SESSION["id"];
+$user_data = null;
+
 $sql = "SELECT * FROM users WHERE id = ?";
 
 if ($stmt = mysqli_prepare($link, $sql)) {
     mysqli_stmt_bind_param($stmt, "i", $id);
-
+    
     if (mysqli_stmt_execute($stmt)) {
         $result = mysqli_stmt_get_result($stmt);
-
+        
         if ($user_data = mysqli_fetch_assoc($result)) {
             $username = $user_data['username'];
             $email = $user_data['email'];
         }
     }
-
+    
     mysqli_stmt_close($stmt);
 }
 
@@ -35,10 +36,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
     # เพิ่มผู้ป่วยใหม่
     if ($_POST["action"] == "add") {
-
-        $username_err = $email_err = $password_err = "";
-        $username = $email = $password = "";
-
         $patient_name = trim($_POST["patient_name"]);
         $hn = trim($_POST["hn"]);
         $age = trim($_POST["age"]);
@@ -49,34 +46,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
         # ตรวจสอบว่าไม่มีช่องว่างเปล่า
         if (!empty($patient_name) && !empty($hn) && !empty($age)) {
-
-            # ใช้วิธีที่ง่ายกว่าแทน - ไม่ใช้ Prepared Statement
-            $patient_name = mysqli_real_escape_string($link, $patient_name);
-            $hn = mysqli_real_escape_string($link, $hn);
-            $age = intval($age);
-            $gender = mysqli_real_escape_string($link, $gender);
-            $address = mysqli_real_escape_string($link, $address);
-            $phone = mysqli_real_escape_string($link, $phone);
-            $diagnosis = mysqli_real_escape_string($link, $diagnosis);
-
+            # ใช้ Prepared Statement เพื่อความปลอดภัย
             $sql = "INSERT INTO patients (hn, patient_name, age, gender, address, phone, diagnosis) 
-              VALUES ('$hn', '$patient_name', $age, '$gender', '$address', '$phone', '$diagnosis')";
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-            if (mysqli_query($link, $sql)) {
-                # เพิ่มข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./patients.php?success=add';" . "</script>";
-                exit;
-            } else {
-                # เกิดข้อผิดพลาด
-                echo "Error: " . mysqli_error($link);
-                exit;
+            if ($stmt = mysqli_prepare($link, $sql)) {
+                mysqli_stmt_bind_param($stmt, "ssissss", $hn, $patient_name, $age, $gender, $address, $phone, $diagnosis);
+
+                if (mysqli_stmt_execute($stmt)) {
+                    # เพิ่มข้อมูลสำเร็จ
+                    redirect("./patients.php?success=add");
+                } else {
+                    # เกิดข้อผิดพลาด
+                    redirect("./patients.php?error=add");
+                }
+
+                mysqli_stmt_close($stmt);
             }
         }
     }
 
     # แก้ไขข้อมูลผู้ป่วย
     elseif ($_POST["action"] == "edit") {
-
         $patient_id = $_POST["patient_id"];
         $patient_name = trim($_POST["patient_name"]);
         $hn = trim($_POST["hn"]);
@@ -88,42 +79,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
         # ตรวจสอบว่าไม่มีช่องว่างเปล่า
         if (!empty($patient_name) && !empty($hn) && !empty($age)) {
-
-            # ใช้วิธีที่ง่ายกว่าแทน - ไม่ใช้ Prepared Statement
-            $patient_id = intval($patient_id);
-            $patient_name = mysqli_real_escape_string($link, $patient_name);
-            $hn = mysqli_real_escape_string($link, $hn);
-            $age = intval($age);
-            $gender = mysqli_real_escape_string($link, $gender);
-            $address = mysqli_real_escape_string($link, $address);
-            $phone = mysqli_real_escape_string($link, $phone);
-            $diagnosis = mysqli_real_escape_string($link, $diagnosis);
-
+            # ใช้ Prepared Statement เพื่อความปลอดภัย
             $sql = "UPDATE patients SET 
-              hn = '$hn', 
-              patient_name = '$patient_name', 
-              age = $age, 
-              gender = '$gender', 
-              address = '$address', 
-              phone = '$phone', 
-              diagnosis = '$diagnosis' 
-              WHERE id = $patient_id";
+                    hn = ?, 
+                    patient_name = ?, 
+                    age = ?, 
+                    gender = ?, 
+                    address = ?, 
+                    phone = ?, 
+                    diagnosis = ? 
+                    WHERE id = ?";
 
-            if (mysqli_query($link, $sql)) {
-                # แก้ไขข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./patients.php?success=edit';" . "</script>";
-                exit;
-            } else {
-                # เกิดข้อผิดพลาด
-                echo "Error: " . mysqli_error($link);
-                exit;
+            if ($stmt = mysqli_prepare($link, $sql)) {
+                mysqli_stmt_bind_param($stmt, "ssissssi", $hn, $patient_name, $age, $gender, $address, $phone, $diagnosis, $patient_id);
+
+                if (mysqli_stmt_execute($stmt)) {
+                    # แก้ไขข้อมูลสำเร็จ
+                    redirect("./patients.php?success=edit");
+                } else {
+                    # เกิดข้อผิดพลาด
+                    redirect("./patients.php?error=edit");
+                }
+
+                mysqli_stmt_close($stmt);
             }
         }
     }
 
     # ลบข้อมูลผู้ป่วย
     elseif ($_POST["action"] == "delete") {
-
         $patient_id = $_POST["patient_id"];
 
         # เตรียม SQL สำหรับลบข้อมูล
@@ -134,12 +118,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
             if (mysqli_stmt_execute($stmt)) {
                 # ลบข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./patients.php?success=delete';" . "</script>";
-                exit;
+                redirect("./patients.php?success=delete");
             } else {
                 # เกิดข้อผิดพลาด
-                echo "<script>" . "window.location.href='./patients.php?error=delete';" . "</script>";
-                exit;
+                redirect("./patients.php?error=delete");
             }
 
             mysqli_stmt_close($stmt);
@@ -156,6 +138,7 @@ if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $patients[] = $row;
     }
+    mysqli_free_result($result);
 }
 
 ?>
@@ -197,46 +180,44 @@ if ($result) {
                         <tbody>
                             <?php foreach ($patients as $patient) : ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($patient['hn']); ?></td>
-                                    <td><?= htmlspecialchars($patient['patient_name']); ?></td>
-                                    <td><?= htmlspecialchars($patient['age']); ?></td>
-                                    <td><?= htmlspecialchars($patient['gender']); ?></td>
-                                    <td><?= htmlspecialchars($patient['phone']); ?></td>
-                                    <td><?= htmlspecialchars($patient['diagnosis']); ?></td>
+                                    <td><?= escape_html($patient['hn']); ?></td>
+                                    <td><?= escape_html($patient['patient_name']); ?></td>
+                                    <td><?= escape_html($patient['age']); ?></td>
+                                    <td><?= escape_html($patient['gender']); ?></td>
+                                    <td><?= escape_html($patient['phone']); ?></td>
+                                    <td><?= escape_html($patient['diagnosis']); ?></td>
                                     <td>
                                         <div class="flex space-x-2">
                                             <button
                                                 class="view-patient text-blue-500 hover:text-blue-700"
                                                 data-id="<?= $patient['id']; ?>"
-                                                data-hn="<?= htmlspecialchars($patient['hn']); ?>"
-                                                data-name="<?= htmlspecialchars($patient['patient_name']); ?>"
-                                                data-age="<?= htmlspecialchars($patient['age']); ?>"
-                                                data-gender="<?= htmlspecialchars($patient['gender']); ?>"
-                                                data-address="<?= htmlspecialchars($patient['address']); ?>"
-                                                data-phone="<?= htmlspecialchars($patient['phone']); ?>"
-                                                data-diagnosis="<?= htmlspecialchars($patient['diagnosis']); ?>">
+                                                data-hn="<?= escape_html($patient['hn']); ?>"
+                                                data-name="<?= escape_html($patient['patient_name']); ?>"
+                                                data-age="<?= escape_html($patient['age']); ?>"
+                                                data-gender="<?= escape_html($patient['gender']); ?>"
+                                                data-address="<?= escape_html($patient['address']); ?>"
+                                                data-phone="<?= escape_html($patient['phone']); ?>"
+                                                data-diagnosis="<?= escape_html($patient['diagnosis']); ?>">
                                                 <i class="fas fa-eye"></i>
                                             </button>
                                             <button
                                                 class="edit-patient text-yellow-500 hover:text-yellow-700"
                                                 data-id="<?= $patient['id']; ?>"
-                                                data-hn="<?= htmlspecialchars($patient['hn']); ?>"
-                                                data-name="<?= htmlspecialchars($patient['patient_name']); ?>"
-                                                data-age="<?= htmlspecialchars($patient['age']); ?>"
-                                                data-gender="<?= htmlspecialchars($patient['gender']); ?>"
-                                                data-address="<?= htmlspecialchars($patient['address']); ?>"
-                                                data-phone="<?= htmlspecialchars($patient['phone']); ?>"
-                                                data-diagnosis="<?= htmlspecialchars($patient['diagnosis']); ?>">
+                                                data-hn="<?= escape_html($patient['hn']); ?>"
+                                                data-name="<?= escape_html($patient['patient_name']); ?>"
+                                                data-age="<?= escape_html($patient['age']); ?>"
+                                                data-gender="<?= escape_html($patient['gender']); ?>"
+                                                data-address="<?= escape_html($patient['address']); ?>"
+                                                data-phone="<?= escape_html($patient['phone']); ?>"
+                                                data-diagnosis="<?= escape_html($patient['diagnosis']); ?>">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <button
                                                 class="delete-patient text-red-500 hover:text-red-700"
                                                 data-id="<?= $patient['id']; ?>"
-                                                data-name="<?= htmlspecialchars($patient['patient_name']); ?>">
+                                                data-name="<?= escape_html($patient['patient_name']); ?>">
                                                 <i class="fas fa-trash"></i>
                                             </button>
-                                            <!-- เพิ่มปุ่มดูผลการตรวจวิเคราะห์ -->
-                                            <!-- เพิ่มปุ่มดูผลการตรวจวิเคราะห์ -->
                                             <a
                                                 href="lab_results.php?patient_id=<?= $patient['id']; ?>"
                                                 class="text-green-500 hover:text-green-700"
@@ -270,3 +251,7 @@ if ($result) {
 </body>
 
 </html>
+<?php
+// ปิดการเชื่อมต่อกับฐานข้อมูล
+mysqli_close($link);
+?>

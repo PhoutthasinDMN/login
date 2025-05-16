@@ -4,8 +4,7 @@ session_start();
 
 # Check if user is already logged in, If yes then redirect him to index page
 if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] == TRUE) {
-  echo "<script>" . "window.location.href='./'" . "</script>";
-  exit;
+    redirect("./");
 }
 
 # Include connection
@@ -17,74 +16,70 @@ $user_login = $user_password = "";
 
 # Processing form data when form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-  if (empty(trim($_POST["user_login"]))) {
-    $user_login_err = "Please enter your username or an email id.";
-  } else {
-    $user_login = trim($_POST["user_login"]);
-  }
-
-  if (empty(trim($_POST["user_password"]))) {
-    $user_password_err = "Please enter your password.";
-  } else {
-    $user_password = trim($_POST["user_password"]);
-  }
-
-  # Validate credentials 
-  if (empty($user_login_err) && empty($user_password_err)) {
-    # Prepare a select statement
-    $sql = "SELECT id, username, password FROM users WHERE username = ? OR email = ?";
-
-    if ($stmt = mysqli_prepare($link, $sql)) {
-      # Bind variables to the statement as parameters
-      mysqli_stmt_bind_param($stmt, "ss", $param_user_login, $param_user_login);
-
-      # Set parameters
-      $param_user_login = $user_login;
-
-      # Execute the statement
-      if (mysqli_stmt_execute($stmt)) {
-        # Store result
-        mysqli_stmt_store_result($stmt);
-
-        # Check if user exists, If yes then verify password
-        if (mysqli_stmt_num_rows($stmt) == 1) {
-          # Bind values in result to variables
-          mysqli_stmt_bind_result($stmt, $id, $username, $hashed_password);
-
-          if (mysqli_stmt_fetch($stmt)) {
-            # Check if password is correct
-            if (password_verify($user_password, $hashed_password)) {
-
-              # Store data in session variables
-              $_SESSION["id"] = $id;
-              $_SESSION["username"] = $username;
-              $_SESSION["loggedin"] = TRUE;
-
-              # Redirect user to index page
-              echo "<script>" . "window.location.href='./'" . "</script>";
-              exit;
-            } else {
-              # If password is incorrect show an error message
-              $login_err = "The email or password you entered is incorrect.";
-            }
-          }
-        } else {
-          # If user doesn't exists show an error message
-          $login_err = "Invalid username or password.";
-        }
-      } else {
-        echo "<script>" . "alert('Oops! Something went wrong. Please try again later.');" . "</script>";
-        echo "<script>" . "window.location.href='./login.php'" . "</script>";
-        exit;
-      }
-
-      # Close statement
-      mysqli_stmt_close($stmt);
+    if (empty(trim($_POST["user_login"]))) {
+        $user_login_err = "กรุณากรอกชื่อผู้ใช้หรืออีเมล";
+    } else {
+        $user_login = trim($_POST["user_login"]);
     }
-  }
 
-  # Close connection
-  mysqli_close($link);
+    if (empty(trim($_POST["user_password"]))) {
+        $user_password_err = "กรุณากรอกรหัสผ่าน";
+    } else {
+        $user_password = trim($_POST["user_password"]);
+    }
+
+    # Validate credentials 
+    if (empty($user_login_err) && empty($user_password_err)) {
+        # Prepare a select statement
+        $sql = "SELECT id, username, password FROM users WHERE username = ? OR email = ?";
+
+        if ($stmt = mysqli_prepare($link, $sql)) {
+            # Bind variables to the statement as parameters
+            mysqli_stmt_bind_param($stmt, "ss", $param_user_login, $param_user_login);
+
+            # Set parameters
+            $param_user_login = $user_login;
+
+            # Execute the statement
+            if (mysqli_stmt_execute($stmt)) {
+                # Store result
+                mysqli_stmt_store_result($stmt);
+
+                # Check if user exists, If yes then verify password
+                if (mysqli_stmt_num_rows($stmt) == 1) {
+                    # Bind values in result to variables
+                    mysqli_stmt_bind_result($stmt, $id, $username, $hashed_password);
+
+                    if (mysqli_stmt_fetch($stmt)) {
+                        # Check if password is correct
+                        if (password_verify($user_password, $hashed_password)) {
+                            # Store data in session variables
+                            $_SESSION["id"] = $id;
+                            $_SESSION["username"] = $username;
+                            $_SESSION["loggedin"] = TRUE;
+
+                            # Redirect user to index page
+                            redirect("./");
+                        } else {
+                            # If password is incorrect show an error message
+                            $login_err = "อีเมลหรือรหัสผ่านที่คุณกรอกไม่ถูกต้อง";
+                        }
+                    }
+                } else {
+                    # If user doesn't exists show an error message
+                    $login_err = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
+                }
+            } else {
+                $login_err = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งในภายหลัง";
+            }
+
+            # Close statement
+            mysqli_stmt_close($stmt);
+        }
+    }
+
+    # Close connection
+    mysqli_close($link);
 }
 ?>
 
@@ -153,13 +148,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <img src="./img/favicon-16x16.png" alt="Logo" class="inline-block h-10 w-10">
           </div>
           <h1 class="text-2xl font-semibold text-center">Welcome to Sneat</h1>
-          <p class="text-center text-blue-100 mt-1">Please sign-in to your account</p>
+          <p class="text-center text-blue-100 mt-1">กรุณาลงชื่อเข้าใช้ระบบเพื่อดำเนินการต่อ</p>
         </div>
 
         <div class="p-6">
           <form action="<?= htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" novalidate>
             <div class="mb-4">
-              <label for="user_login" class="block text-sm font-medium text-gray-700 mb-1">Email or Username</label>
+              <label for="user_login" class="block text-sm font-medium text-gray-700 mb-1">อีเมลหรือชื่อผู้ใช้</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                   <i class="fas fa-user"></i>
@@ -169,8 +164,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                   class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   name="user_login"
                   id="user_login"
-                  value="<?= $user_login; ?>"
-                  placeholder="Enter your email or username">
+                  value="<?= escape_html($user_login); ?>"
+                  placeholder="กรอกอีเมลหรือชื่อผู้ใช้">
               </div>
               <?php if (!empty($user_login_err)) : ?>
                 <p class="mt-1 text-sm text-red-500"><?= $user_login_err; ?></p>
@@ -179,8 +174,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             <div class="mb-4">
               <div class="flex justify-between mb-1">
-                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                <a href="#" class="text-sm text-primary-500 hover:text-primary-600 hover:underline">Forgot Password?</a>
+                <label for="password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                <a href="#" class="text-sm text-primary-500 hover:text-primary-600 hover:underline">ลืมรหัสผ่าน?</a>
               </div>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -201,19 +196,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="mb-4">
               <label class="flex items-center">
                 <input type="checkbox" class="form-checkbox h-4 w-4 text-primary-500 rounded border-gray-300 focus:ring-primary-500" id="togglePassword">
-                <span class="ml-2 text-sm text-gray-700">Show Password</span>
+                <span class="ml-2 text-sm text-gray-700">แสดงรหัสผ่าน</span>
               </label>
             </div>
 
             <div class="mb-6">
               <button type="submit" class="w-full bg-primary-500 text-white py-2 px-4 rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 transition-colors">
-                Sign in
+                เข้าสู่ระบบ
               </button>
             </div>
 
             <p class="text-center text-gray-600 text-sm">
-              New on our platform?
-              <a href="./register.php" class="text-primary-500 hover:text-primary-600 hover:underline">Create an account</a>
+              ยังไม่มีบัญชีผู้ใช้?
+              <a href="./register.php" class="text-primary-500 hover:text-primary-600 hover:underline">สร้างบัญชีใหม่</a>
             </p>
           </form>
         </div>

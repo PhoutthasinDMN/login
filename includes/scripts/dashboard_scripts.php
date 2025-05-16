@@ -4,7 +4,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     
     // Welcome message for first login
-    if (!sessionStorage.getItem('welcomeShown')) {
+    if (!localStorage.getItem('welcomeShown')) {
       Swal.fire({
         title: 'ยินดีต้อนรับ!',
         text: 'คุณได้เข้าสู่ระบบสำเร็จแล้ว',
@@ -14,7 +14,7 @@
         timerProgressBar: true
       });
       
-      sessionStorage.setItem('welcomeShown', 'true');
+      localStorage.setItem('welcomeShown', 'true');
     }
     
     // Animation for stats cards

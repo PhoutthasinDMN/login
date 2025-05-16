@@ -4,8 +4,7 @@ session_start();
 
 # If user is not logged in then redirect him to login page
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== TRUE) {
-  echo "<script>" . "window.location.href='./login.php';" . "</script>";
-  exit;
+    redirect("/login.php");
 }
 
 # Include connection
@@ -13,22 +12,24 @@ require_once "./config.php";
 
 # ดึงข้อมูลผู้ใช้ปัจจุบัน
 $id = $_SESSION["id"];
+$user_data = null;
+
 $sql = "SELECT * FROM users WHERE id = ?";
 
-if($stmt = mysqli_prepare($link, $sql)) {
-  mysqli_stmt_bind_param($stmt, "i", $id);
-  
-  if(mysqli_stmt_execute($stmt)) {
-    $result = mysqli_stmt_get_result($stmt);
+if ($stmt = mysqli_prepare($link, $sql)) {
+    mysqli_stmt_bind_param($stmt, "i", $id);
     
-    if($user_data = mysqli_fetch_assoc($result)) {
-      $username = $user_data['username'];
-      $email = $user_data['email'];
-      $reg_date = $user_data['reg_date'];
+    if (mysqli_stmt_execute($stmt)) {
+        $result = mysqli_stmt_get_result($stmt);
+        
+        if ($user_data = mysqli_fetch_assoc($result)) {
+            $username = $user_data['username'];
+            $email = $user_data['email'];
+            $reg_date = $user_data['reg_date'];
+        }
     }
-  }
-  
-  mysqli_stmt_close($stmt);
+    
+    mysqli_stmt_close($stmt);
 }
 
 # ดึงข้อมูลสถิติต่างๆ
@@ -91,7 +92,7 @@ if ($result) {
     <main class="ml-64 flex-1 p-8">
       <div class="mb-6">
         <h1 class="text-3xl font-display font-semibold text-gray-800">Dashboard</h1>
-        <p class="text-gray-600">สวัสดี, <?= htmlspecialchars($username); ?>! ยินดีต้อนรับกลับมา</p>
+        <p class="text-gray-600">สวัสดี, <?= escape_html($username); ?>! ยินดีต้อนรับกลับมา</p>
       </div>
       
       <!-- Stats Cards -->
@@ -146,8 +147,8 @@ if ($result) {
           <div class="flex flex-col md:flex-row">
             <div class="md:w-1/3 text-center mb-6 md:mb-0">
               <img src="./img/blank-avatar.jpg" class="w-32 h-32 rounded-full mx-auto" alt="User avatar">
-              <h3 class="mt-4 text-lg font-semibold"><?= htmlspecialchars($username); ?></h3>
-              <p class="text-sm text-gray-500"><?= htmlspecialchars($email); ?></p>
+              <h3 class="mt-4 text-lg font-semibold"><?= escape_html($username); ?></h3>
+              <p class="text-sm text-gray-500"><?= escape_html($email); ?></p>
               <button class="mt-4 px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition-colors">
                 แก้ไขโปรไฟล์
               </button>
@@ -156,19 +157,19 @@ if ($result) {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <p class="text-sm text-gray-500">ชื่อผู้ใช้</p>
-                  <p class="font-semibold"><?= htmlspecialchars($username); ?></p>
+                  <p class="font-semibold"><?= escape_html($username); ?></p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">อีเมล</p>
-                  <p class="font-semibold"><?= htmlspecialchars($email); ?></p>
+                  <p class="font-semibold"><?= escape_html($email); ?></p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">วันที่ลงทะเบียน</p>
-                  <p class="font-semibold"><?= htmlspecialchars($reg_date); ?></p>
+                  <p class="font-semibold"><?= escape_html($reg_date); ?></p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">รหัสผู้ใช้</p>
-                  <p class="font-semibold">#<?= htmlspecialchars($id); ?></p>
+                  <p class="font-semibold">#<?= escape_html($id); ?></p>
                 </div>
               </div>
               <div class="mt-6">
@@ -201,8 +202,8 @@ if ($result) {
                     <i class="fas fa-user"></i>
                   </div>
                   <div>
-                    <p class="font-medium"><?= htmlspecialchars($patient['patient_name']); ?></p>
-                    <p class="text-sm text-gray-500">HN: <?= htmlspecialchars($patient['hn']); ?></p>
+                    <p class="font-medium"><?= escape_html($patient['patient_name']); ?></p>
+                    <p class="text-sm text-gray-500">HN: <?= escape_html($patient['hn']); ?></p>
                   </div>
                 </div>
                 <a href="patients.php?view=<?= $patient['id']; ?>" class="text-blue-500 hover:text-blue-700">
@@ -237,10 +238,10 @@ if ($result) {
                     <i class="fas fa-flask"></i>
                   </div>
                   <div>
-                    <p class="font-medium"><?= htmlspecialchars($lab['patient_name']); ?></p>
+                    <p class="font-medium"><?= escape_html($lab['patient_name']); ?></p>
                     <p class="text-sm text-gray-500">
-                      <?= htmlspecialchars($lab['lab_type']); ?> - 
-                      <?= htmlspecialchars(date('d/m/Y', strtotime($lab['lab_date']))); ?>
+                      <?= escape_html($lab['lab_type']); ?> - 
+                      <?= escape_html(date('d/m/Y', strtotime($lab['lab_date']))); ?>
                     </p>
                   </div>
                 </div>

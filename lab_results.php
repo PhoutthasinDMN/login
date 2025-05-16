@@ -4,8 +4,7 @@ session_start();
 
 # If user is not logged in then redirect him to login page
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== TRUE) {
-    echo "<script>" . "window.location.href='./login.php';" . "</script>";
-    exit;
+    redirect("./login.php");
 }
 
 # Include connection
@@ -13,20 +12,23 @@ require_once "./config.php";
 
 # ดึงข้อมูลผู้ใช้ปัจจุบัน
 $id = $_SESSION["id"];
+$user_data = null;
+
 $sql = "SELECT * FROM users WHERE id = ?";
 
 if ($stmt = mysqli_prepare($link, $sql)) {
     mysqli_stmt_bind_param($stmt, "i", $id);
-
+    
     if (mysqli_stmt_execute($stmt)) {
         $result = mysqli_stmt_get_result($stmt);
-
+        
         if ($user_data = mysqli_fetch_assoc($result)) {
             $username = $user_data['username'];
             $email = $user_data['email'];
         }
+        mysqli_free_result($result);
     }
-
+    
     mysqli_stmt_close($stmt);
 }
 
@@ -41,16 +43,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
         $lab_type = trim($_POST["lab_type"]);
         $lab_details = trim($_POST["lab_details"]);
         $blood_pressure = trim($_POST["blood_pressure"]);
-        $pulse = trim($_POST["pulse"]);
-        $temperature = trim($_POST["temperature"]);
-        $weight = trim($_POST["weight"]);
-        $height = trim($_POST["height"]);
-        $glucose = trim($_POST["glucose"]);
-        $cholesterol = trim($_POST["cholesterol"]);
+        $pulse = !empty($_POST["pulse"]) ? trim($_POST["pulse"]) : null;
+        $temperature = !empty($_POST["temperature"]) ? trim($_POST["temperature"]) : null;
+        $weight = !empty($_POST["weight"]) ? trim($_POST["weight"]) : null;
+        $height = !empty($_POST["height"]) ? trim($_POST["height"]) : null;
+        $glucose = !empty($_POST["glucose"]) ? trim($_POST["glucose"]) : null;
+        $cholesterol = !empty($_POST["cholesterol"]) ? trim($_POST["cholesterol"]) : null;
         $note = trim($_POST["note"]);
+        $created_by = $id; // user_id
 
         # คำนวณ BMI
-        $bmi = 0;
+        $bmi = null;
         if (!empty($weight) && !empty($height) && $height > 0) {
             $height_m = $height / 100; // แปลงส่วนสูงจาก cm เป็น m
             $bmi = round($weight / ($height_m * $height_m), 2);
@@ -58,35 +61,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
         # ตรวจสอบว่าไม่มีช่องว่างเปล่าที่จำเป็น
         if (!empty($patient_id) && !empty($lab_date) && !empty($lab_type)) {
-
-            # ใช้วิธีที่ง่ายกว่าแทน - ไม่ใช้ Prepared Statement
-            $patient_id = intval($patient_id);
-            $lab_date = mysqli_real_escape_string($link, $lab_date);
-            $lab_type = mysqli_real_escape_string($link, $lab_type);
-            $lab_details = mysqli_real_escape_string($link, $lab_details);
-            $blood_pressure = mysqli_real_escape_string($link, $blood_pressure);
-            $pulse = intval($pulse);
-            $temperature = floatval($temperature);
-            $weight = floatval($weight);
-            $height = floatval($height);
-            $bmi = floatval($bmi);
-            $glucose = floatval($glucose);
-            $cholesterol = floatval($cholesterol);
-            $created_by = intval($id);
-            $note = mysqli_real_escape_string($link, $note);
-
+            # ใช้ Prepared Statement เพื่อความปลอดภัย
             $sql = "INSERT INTO lab_results (patient_id, lab_date, lab_type, lab_details, blood_pressure, pulse, temperature, weight, height, bmi, glucose, cholesterol, created_by, note) 
-              VALUES ($patient_id, '$lab_date', '$lab_type', '$lab_details', '$blood_pressure', $pulse, $temperature, $weight, $height, $bmi, $glucose, $cholesterol, $created_by, '$note')";
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            if (mysqli_query($link, $sql)) {
-                # เพิ่มข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./lab_results.php?success=add';" . "</script>";
-                exit;
+            if ($stmt = mysqli_prepare($link, $sql)) {
+                mysqli_stmt_bind_param(
+                    $stmt, 
+                    "issssdddddddis", 
+                    $patient_id,          // i - integer 
+                    $lab_date,            // s - string
+                    $lab_type,            // s - string
+                    $lab_details,         // s - string
+                    $blood_pressure,      // s - string
+                    $pulse,               // d - double (numeric)
+                    $temperature,         // d - double
+                    $weight,              // d - double
+                    $height,              // d - double
+                    $bmi,                 // d - double
+                    $glucose,             // d - double
+                    $cholesterol,         // d - double
+                    $created_by,          // i - integer
+                    $note                 // s - string
+                );
+
+                if (mysqli_stmt_execute($stmt)) {
+                    # เพิ่มข้อมูลสำเร็จ
+                    redirect("./lab_results.php?success=add");
+                } else {
+                    # เกิดข้อผิดพลาด
+                    redirect("./lab_results.php?error=add&message=" . mysqli_error($link));
+                }
+
+                mysqli_stmt_close($stmt);
             } else {
-                # เกิดข้อผิดพลาด
-                echo "Error: " . mysqli_error($link);
-                exit;
+                # เกิดข้อผิดพลาดในการสร้าง Prepared Statement
+                redirect("./lab_results.php?error=prepare&message=" . mysqli_error($link));
             }
+        } else {
+            # ข้อมูลจำเป็นไม่ครบถ้วน
+            redirect("./lab_results.php?error=validation");
         }
     }
 
@@ -99,16 +113,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
         $lab_type = trim($_POST["lab_type"]);
         $lab_details = trim($_POST["lab_details"]);
         $blood_pressure = trim($_POST["blood_pressure"]);
-        $pulse = trim($_POST["pulse"]);
-        $temperature = trim($_POST["temperature"]);
-        $weight = trim($_POST["weight"]);
-        $height = trim($_POST["height"]);
-        $glucose = trim($_POST["glucose"]);
-        $cholesterol = trim($_POST["cholesterol"]);
+        $pulse = !empty($_POST["pulse"]) ? trim($_POST["pulse"]) : null;
+        $temperature = !empty($_POST["temperature"]) ? trim($_POST["temperature"]) : null;
+        $weight = !empty($_POST["weight"]) ? trim($_POST["weight"]) : null;
+        $height = !empty($_POST["height"]) ? trim($_POST["height"]) : null;
+        $glucose = !empty($_POST["glucose"]) ? trim($_POST["glucose"]) : null;
+        $cholesterol = !empty($_POST["cholesterol"]) ? trim($_POST["cholesterol"]) : null;
         $note = trim($_POST["note"]);
 
         # คำนวณ BMI
-        $bmi = 0;
+        $bmi = null;
         if (!empty($weight) && !empty($height) && $height > 0) {
             $height_m = $height / 100; // แปลงส่วนสูงจาก cm เป็น m
             $bmi = round($weight / ($height_m * $height_m), 2);
@@ -116,54 +130,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
         # ตรวจสอบว่าไม่มีช่องว่างเปล่าที่จำเป็น
         if (!empty($patient_id) && !empty($lab_date) && !empty($lab_type)) {
-
-            # ใช้วิธีที่ง่ายกว่าแทน - ไม่ใช้ Prepared Statement
-            $lab_id = intval($lab_id);
-            $patient_id = intval($patient_id);
-            $lab_date = mysqli_real_escape_string($link, $lab_date);
-            $lab_type = mysqli_real_escape_string($link, $lab_type);
-            $lab_details = mysqli_real_escape_string($link, $lab_details);
-            $blood_pressure = mysqli_real_escape_string($link, $blood_pressure);
-            $pulse = intval($pulse);
-            $temperature = floatval($temperature);
-            $weight = floatval($weight);
-            $height = floatval($height);
-            $bmi = floatval($bmi);
-            $glucose = floatval($glucose);
-            $cholesterol = floatval($cholesterol);
-            $note = mysqli_real_escape_string($link, $note);
-
+            # ใช้ Prepared Statement เพื่อความปลอดภัย
             $sql = "UPDATE lab_results SET 
-              patient_id = $patient_id, 
-              lab_date = '$lab_date', 
-              lab_type = '$lab_type', 
-              lab_details = '$lab_details', 
-              blood_pressure = '$blood_pressure', 
-              pulse = $pulse, 
-              temperature = $temperature, 
-              weight = $weight, 
-              height = $height, 
-              bmi = $bmi, 
-              glucose = $glucose, 
-              cholesterol = $cholesterol, 
-              note = '$note' 
-              WHERE id = $lab_id";
+                    patient_id = ?, 
+                    lab_date = ?, 
+                    lab_type = ?, 
+                    lab_details = ?, 
+                    blood_pressure = ?, 
+                    pulse = ?, 
+                    temperature = ?, 
+                    weight = ?, 
+                    height = ?, 
+                    bmi = ?, 
+                    glucose = ?, 
+                    cholesterol = ?, 
+                    note = ? 
+                    WHERE id = ?";
 
-            if (mysqli_query($link, $sql)) {
-                # แก้ไขข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./lab_results.php?success=edit';" . "</script>";
-                exit;
+            if ($stmt = mysqli_prepare($link, $sql)) {
+                mysqli_stmt_bind_param(
+                    $stmt, 
+                    "issssdddddddsi", 
+                    $patient_id,          // i - integer
+                    $lab_date,            // s - string  
+                    $lab_type,            // s - string
+                    $lab_details,         // s - string
+                    $blood_pressure,      // s - string
+                    $pulse,               // d - double
+                    $temperature,         // d - double
+                    $weight,              // d - double
+                    $height,              // d - double
+                    $bmi,                 // d - double
+                    $glucose,             // d - double
+                    $cholesterol,         // d - double
+                    $note,                // s - string
+                    $lab_id               // i - integer
+                );
+
+                if (mysqli_stmt_execute($stmt)) {
+                    # แก้ไขข้อมูลสำเร็จ
+                    redirect("./lab_results.php?success=edit");
+                } else {
+                    # เกิดข้อผิดพลาด
+                    redirect("./lab_results.php?error=edit&message=" . mysqli_error($link));
+                }
+
+                mysqli_stmt_close($stmt);
             } else {
-                # เกิดข้อผิดพลาด
-                echo "Error: " . mysqli_error($link);
-                exit;
+                # เกิดข้อผิดพลาดในการสร้าง Prepared Statement
+                redirect("./lab_results.php?error=prepare&message=" . mysqli_error($link));
             }
+        } else {
+            # ข้อมูลจำเป็นไม่ครบถ้วน
+            redirect("./lab_results.php?error=validation");
         }
     }
 
     # ลบผลการตรวจวิเคราะห์
     elseif ($_POST["action"] == "delete") {
-
         $lab_id = $_POST["lab_id"];
 
         # เตรียม SQL สำหรับลบข้อมูล
@@ -174,15 +198,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["action"])) {
 
             if (mysqli_stmt_execute($stmt)) {
                 # ลบข้อมูลสำเร็จ
-                echo "<script>" . "window.location.href='./lab_results.php?success=delete';" . "</script>";
-                exit;
+                redirect("./lab_results.php?success=delete");
             } else {
                 # เกิดข้อผิดพลาด
-                echo "<script>" . "window.location.href='./lab_results.php?error=delete';" . "</script>";
-                exit;
+                redirect("./lab_results.php?error=delete&message=" . mysqli_error($link));
             }
 
             mysqli_stmt_close($stmt);
+        } else {
+            # เกิดข้อผิดพลาดในการสร้าง Prepared Statement
+            redirect("./lab_results.php?error=prepare&message=" . mysqli_error($link));
         }
     }
 }
@@ -208,6 +233,7 @@ if ($filter_patient_id > 0) {
                     $patient_filter_name = $row['patient_name'];
                 }
             }
+            mysqli_free_result($result);
         }
 
         mysqli_stmt_close($stmt);
@@ -222,6 +248,7 @@ if ($filter_patient_id > 0) {
         while ($row = mysqli_fetch_assoc($result)) {
             $lab_results[] = $row;
         }
+        mysqli_free_result($result);
     }
 }
 
@@ -234,6 +261,7 @@ if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $patients[] = $row;
     }
+    mysqli_free_result($result);
 }
 
 ?>
@@ -251,7 +279,7 @@ if ($result) {
                 <div>
                     <h1 class="text-3xl font-display font-semibold text-gray-800">ผลการตรวจวิเคราะห์</h1>
                     <?php if (!empty($patient_filter_name)) : ?>
-                        <p class="text-gray-600">กำลังแสดงผลการตรวจวิเคราะห์ของ: <strong><?= htmlspecialchars($patient_filter_name) ?></strong> <a href="lab_results.php" class="text-primary-500 hover:underline">(แสดงทั้งหมด)</a></p>
+                        <p class="text-gray-600">กำลังแสดงผลการตรวจวิเคราะห์ของ: <strong><?= escape_html($patient_filter_name) ?></strong> <a href="lab_results.php" class="text-primary-500 hover:underline">(แสดงทั้งหมด)</a></p>
                     <?php else : ?>
                         <p class="text-gray-600">บันทึกและจัดการผลการตรวจวิเคราะห์ของผู้ป่วย</p>
                     <?php endif; ?>
@@ -286,7 +314,7 @@ if ($result) {
                                 $total_items = 0;
                                 $abnormal_items = 0;
 
-                                $sql = "SELECT COUNT(*) as total, SUM(is_abnormal) as abnormal FROM lab_result_details WHERE lab_result_id = ?";
+                                $sql = "SELECT COUNT(*) as total, SUM(CASE WHEN is_abnormal = 1 THEN 1 ELSE 0 END) as abnormal FROM lab_result_details WHERE lab_result_id = ?";
                                 if ($stmt = mysqli_prepare($link, $sql)) {
                                     mysqli_stmt_bind_param($stmt, "i", $lab_id);
 
@@ -295,18 +323,19 @@ if ($result) {
 
                                         if ($row = mysqli_fetch_assoc($result)) {
                                             $total_items = $row['total'];
-                                            $abnormal_items = $row['abnormal'];
+                                            $abnormal_items = $row['abnormal'] ?? 0;
                                         }
+                                        mysqli_free_result($result);
                                     }
 
                                     mysqli_stmt_close($stmt);
                                 }
                                 ?>
                                 <tr>
-                                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($lab['lab_date']))); ?></td>
-                                    <td><?= htmlspecialchars($lab['patient_name']); ?></td>
-                                    <td><?= htmlspecialchars($lab['hn']); ?></td>
-                                    <td><?= htmlspecialchars($lab['lab_type']); ?></td>
+                                    <td><?= escape_html(date('d/m/Y', strtotime($lab['lab_date']))); ?></td>
+                                    <td><?= escape_html($lab['patient_name']); ?></td>
+                                    <td><?= escape_html($lab['hn']); ?></td>
+                                    <td><?= escape_html($lab['lab_type']); ?></td>
                                     <td>
                                         <?php if ($total_items > 0) : ?>
                                             <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
@@ -327,8 +356,8 @@ if ($result) {
                                             </span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= htmlspecialchars($lab['weight'] ? $lab['weight'] . ' กก. / ' . $lab['height'] . ' ซม.' : '-'); ?></td>
-                                    <td><?= htmlspecialchars($lab['blood_pressure'] ?: '-'); ?></td>
+                                    <td><?= escape_html($lab['weight'] ? $lab['weight'] . ' กก. / ' . $lab['height'] . ' ซม.' : '-'); ?></td>
+                                    <td><?= escape_html($lab['blood_pressure'] ?: '-'); ?></td>
                                     <td>
                                         <div class="flex space-x-2">
                                             <a
@@ -341,23 +370,46 @@ if ($result) {
                                                 class="view-lab text-blue-500 hover:text-blue-700"
                                                 data-id="<?= $lab['id']; ?>"
                                                 data-patient-id="<?= $lab['patient_id']; ?>"
-                                                data-patient-name="<?= htmlspecialchars($lab['patient_name']); ?>"
-                                                data-hn="<?= htmlspecialchars($lab['hn']); ?>"
-                                                data-lab-date="<?= htmlspecialchars($lab['lab_date']); ?>"
-                                                data-lab-type="<?= htmlspecialchars($lab['lab_type']); ?>"
-                                                data-lab-details="<?= htmlspecialchars($lab['lab_details']); ?>"
-                                                data-blood-pressure="<?= htmlspecialchars($lab['blood_pressure']); ?>"
-                                                data-pulse="<?= htmlspecialchars($lab['pulse']); ?>"
-                                                data-temperature="<?= htmlspecialchars($lab['temperature']); ?>"
-                                                data-weight="<?= htmlspecialchars($lab['weight']); ?>"
-                                                data-height="<?= htmlspecialchars($lab['height']); ?>"
-                                                data-bmi="<?= htmlspecialchars($lab['bmi']); ?>"
-                                                data-glucose="<?= htmlspecialchars($lab['glucose']); ?>"
-                                                data-cholesterol="<?= htmlspecialchars($lab['cholesterol']); ?>"
-                                                data-note="<?= htmlspecialchars($lab['note']); ?>">
+                                                data-patient-name="<?= escape_html($lab['patient_name']); ?>"
+                                                data-hn="<?= escape_html($lab['hn']); ?>"
+                                                data-lab-date="<?= escape_html($lab['lab_date']); ?>"
+                                                data-lab-type="<?= escape_html($lab['lab_type']); ?>"
+                                                data-lab-details="<?= escape_html($lab['lab_details']); ?>"
+                                                data-blood-pressure="<?= escape_html($lab['blood_pressure']); ?>"
+                                                data-pulse="<?= escape_html($lab['pulse']); ?>"
+                                                data-temperature="<?= escape_html($lab['temperature']); ?>"
+                                                data-weight="<?= escape_html($lab['weight']); ?>"
+                                                data-height="<?= escape_html($lab['height']); ?>"
+                                                data-bmi="<?= escape_html($lab['bmi']); ?>"
+                                                data-glucose="<?= escape_html($lab['glucose']); ?>"
+                                                data-cholesterol="<?= escape_html($lab['cholesterol']); ?>"
+                                                data-note="<?= escape_html($lab['note']); ?>">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <!-- ปุ่มอื่นๆ เหมือนเดิม -->
+                                            <button
+                                                class="edit-lab text-yellow-500 hover:text-yellow-700"
+                                                data-id="<?= $lab['id']; ?>"
+                                                data-patient-id="<?= $lab['patient_id']; ?>"
+                                                data-lab-date="<?= escape_html($lab['lab_date']); ?>"
+                                                data-lab-type="<?= escape_html($lab['lab_type']); ?>"
+                                                data-lab-details="<?= escape_html($lab['lab_details']); ?>"
+                                                data-blood-pressure="<?= escape_html($lab['blood_pressure']); ?>"
+                                                data-pulse="<?= escape_html($lab['pulse']); ?>"
+                                                data-temperature="<?= escape_html($lab['temperature']); ?>"
+                                                data-weight="<?= escape_html($lab['weight']); ?>"
+                                                data-height="<?= escape_html($lab['height']); ?>"
+                                                data-glucose="<?= escape_html($lab['glucose']); ?>"
+                                                data-cholesterol="<?= escape_html($lab['cholesterol']); ?>"
+                                                data-note="<?= escape_html($lab['note']); ?>">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button
+                                                class="delete-lab text-red-500 hover:text-red-700"
+                                                data-id="<?= $lab['id']; ?>"
+                                                data-patient-name="<?= escape_html($lab['patient_name']); ?>"
+                                                data-lab-date="<?= escape_html($lab['lab_date']); ?>">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -385,3 +437,7 @@ if ($result) {
 </body>
 
 </html>
+<?php
+// ปิดการเชื่อมต่อกับฐานข้อมูล
+mysqli_close($link);
+?>

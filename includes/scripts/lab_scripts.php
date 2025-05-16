@@ -47,10 +47,11 @@
                 confirmButtonColor: '#0075e1'
             });
         } else if (urlParams.get('error')) {
+            const errorMessage = urlParams.get('message') || 'เกิดข้อผิดพลาดในการทำงาน กรุณาลองใหม่อีกครั้ง';
             Swal.fire({
                 icon: 'error',
                 title: 'เกิดข้อผิดพลาด!',
-                text: 'เกิดข้อผิดพลาดในการทำงาน กรุณาลองใหม่อีกครั้ง',
+                text: errorMessage,
                 confirmButtonColor: '#0075e1'
             });
         }
@@ -301,8 +302,6 @@
             // Auto print when ready
             printWindow.onload = function() {
                 printWindow.focus();
-                // Uncomment this line to immediately print
-                // printWindow.print();
             };
         });
 
