@@ -11,15 +11,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- สไตล์เพิ่มเติม -->
-  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/main.min.css">
   
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
   
-  <!-- DataTables -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.min.css">
+  <!-- ใช้ defer เพื่อให้โหลด JS หลังจากโหลดหน้าเว็บเสร็จ -->
+  <script defer src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script defer src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.27/dist/sweetalert2.min.js"></script>
   
-  <!-- Sweet Alert 2 -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.27/dist/sweetalert2.min.css">
   
   <!-- Custom Tailwind Config -->

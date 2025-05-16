@@ -1,11 +1,19 @@
 <?php
-# Initialize session
+# Initialize session with secure settings
+ini_set('session.cookie_httponly', 1);
+if(isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+    ini_set('session.cookie_secure', 1);
+}
 session_start();
 
-# Check if user is already logged in, If yes then redirect him to index page
-if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] == TRUE) {
-    redirect("./");
+# ตรวจสอบและป้องกัน session fixation
+if (!isset($_SESSION['last_regenerated']) || 
+    time() - $_SESSION['last_regenerated'] > 1800) {
+    session_regenerate_id(true);
+    $_SESSION['last_regenerated'] = time();
 }
+
+# ส่วนที่เหลือของโค้ด login.php
 
 # Include connection
 require_once "./config.php";
